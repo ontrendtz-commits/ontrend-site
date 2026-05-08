@@ -1,7 +1,4 @@
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-
-// Bug 4 fix: cache is noted as best-effort only — it works within a warm
-// Lambda container but is not relied upon for correctness.
 const memoryCache = new Map();
 
 const headers = {
@@ -27,21 +24,16 @@ function isValidHttpUrl(value) {
 function normalizeUrl(value) {
   const parsed = new URL(value.trim());
   parsed.hash = "";
-  // Bug 3 fix: strip tracking/session query params that don't affect product
-  // identity so the same product isn't cached multiple times.
   const KEEP_PARAMS = new Set(["th", "psc", "color", "size", "variant"]);
   const cleaned = new URLSearchParams();
   for (const [k, v] of parsed.searchParams.entries()) {
     if (KEEP_PARAMS.has(k.toLowerCase())) cleaned.set(k, v);
   }
   parsed.search = cleaned.toString();
-  // Remove trailing slash for consistency
   parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
   return parsed.toString();
 }
 
-// Bug 3 fix: for Amazon URLs use the ASIN as the cache key so variant URLs
-// for the same product share one cache entry.
 function getCacheKey(url, asin) {
   if (asin) {
     try {
@@ -52,30 +44,24 @@ function getCacheKey(url, asin) {
   return url;
 }
 
-// Bug 9 fix: noon.com detection is now path-aware to avoid matching
-// non-UAE Noon storefronts (Saudi, Egypt).
 function detectSourceMarket(value) {
   try {
     const host = new URL(value).hostname.toLowerCase();
     const path = new URL(value).pathname.toLowerCase();
 
-    // UAE
     if (
       host === "www.amazon.ae" ||
       host === "amazon.ae" ||
       host.endsWith(".ae") ||
-      // Noon UAE — path starts with /uae/ or /en-ae/
       (host.includes("noon.com") && (path.startsWith("/uae") || path.startsWith("/en-ae")))
     ) {
       return { route: "uae", currency: "AED" };
     }
 
-    // UK
     if (host === "www.amazon.co.uk" || host === "amazon.co.uk" || host.endsWith(".uk")) {
       return { route: "uk", currency: "GBP" };
     }
 
-    // USA
     if (
       host === "www.amazon.com" ||
       host === "amazon.com" ||
@@ -90,11 +76,9 @@ function detectSourceMarket(value) {
   return null;
 }
 
-// Bug 10 fix: only extract ASIN from known Amazon ASIN path patterns.
 function extractAmazonAsin(value) {
   try {
     const path = new URL(value).pathname || "";
-    // Only match /dp/ASIN or /gp/product/ASIN — not arbitrary 10-char segments
     const match = path.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
     return match ? match[1].toUpperCase() : null;
   } catch (_) {
@@ -114,31 +98,6 @@ function makeOrderRef() {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const code = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `OT-${date}-${code}`;
-}
-
-// Bug 2 fix: robust output extraction with fallback logging.
-function getOutputText(data) {
-  // Flat text field (some response shapes)
-  if (typeof data.output_text === "string" && data.output_text.trim()) {
-    return data.output_text;
-  }
-
-  // Nested message content (standard /v1/responses shape)
-  const fromOutput = (data.output || [])
-    .filter(item => item.type === "message")
-    .flatMap(item => item.content || [])
-    .filter(c => c.type === "output_text" || c.type === "text")
-    .map(c => c.text || "")
-    .join("");
-
-  if (fromOutput.trim()) return fromOutput;
-
-  // Last resort: choices array (/v1/chat/completions shape)
-  const fromChoices = (data.choices || [])
-    .map(c => c.message?.content || "")
-    .join("");
-
-  return fromChoices;
 }
 
 function num(value, fallback = null) {
@@ -195,7 +154,6 @@ function sanitizeQuote(raw, url) {
   });
 
   return {
-    // Bug 6 fix: order_ref is always generated server-side — never from model.
     order_ref: makeOrderRef(),
     source_url: url,
     name: String(raw.name || "Product quote").slice(0, 80),
@@ -213,6 +171,23 @@ function sanitizeQuote(raw, url) {
       ? String(raw.notes).slice(0, 220)
       : "Live web lookup estimate. Final invoice confirmed before order."
   };
+}
+
+// Extract JSON from Claude's text response — Claude returns prose +
+// a JSON block, so we find the first { ... } block in the output.
+function extractJson(text) {
+  // Try a fenced ```json block first
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) {
+    try { return JSON.parse(fenced[1].trim()); } catch (_) {}
+  }
+  // Fall back to finding the outermost { } block
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch (_) {}
+  }
+  return null;
 }
 
 exports.handler = async function (event) {
@@ -242,161 +217,133 @@ exports.handler = async function (event) {
     return json(200, { ...cached.data, cached: true });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return json(500, {
-      error: "OpenAI API key is missing. Add OPENAI_API_KEY in Netlify environment variables."
+      error: "Anthropic API key is missing. Add ANTHROPIC_API_KEY in Netlify environment variables."
     });
   }
 
-  // ─── JSON schema ─────────────────────────────────────────────────────────────
-  // Bug 7 fix: use anyOf instead of type arrays for strict mode compatibility.
-  const nullable = type => ({ anyOf: [{ type }, { type: "null" }] });
-
-  const routeSchema = currency => ({
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      price: {
-        ...nullable("number"),
-        description: `Current price in ${currency} before shipping. Null if unavailable.`
-      },
-      currency: { type: "string", enum: [currency] },
-      store: { type: "string" },
-      matched_product_name: {
-        ...nullable("string"),
-        description: "Exact product title found for this market."
-      },
-      product_url: {
-        ...nullable("string"),
-        description: "URL of the matched product page."
-      },
-      confidence: {
-        type: "string",
-        enum: ["high", "medium", "low"]
-      }
-    },
-    required: ["price", "currency", "store", "matched_product_name", "product_url", "confidence"]
-  });
-
-  const schema = {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      name: { type: "string", description: "Exact product name, max 80 chars." },
-      brand: { ...nullable("string"), description: "Brand if identifiable." },
-      model: {
-        ...nullable("string"),
-        description: "Model, SKU, ASIN, colour/size variant if identifiable."
-      },
-      actual_weight_kg: {
-        type: "number",
-        description: "Actual packed weight in kg."
-      },
-      dimensions_cm: {
-        type: "object",
-        additionalProperties: false,
-        properties: {
-          length: { ...nullable("number"), description: "Packed length in cm." },
-          width: { ...nullable("number"), description: "Packed width in cm." },
-          height: { ...nullable("number"), description: "Packed height in cm." }
-        },
-        required: ["length", "width", "height"]
-      },
-      volumetric_weight_kg: {
-        ...nullable("number"),
-        description: "L*W*H/5000. Null if dimensions unavailable."
-      },
-      chargeable_weight_kg: {
-        type: "number",
-        description: "max(actual, volumetric). Used for shipping cost."
-      },
-      uk: routeSchema("GBP"),
-      usa: routeSchema("USD"),
-      uae: routeSchema("AED"),
-      notes: { type: "string" }
-    },
-    required: [
-      "name", "brand", "model",
-      "actual_weight_kg", "dimensions_cm",
-      "volumetric_weight_kg", "chargeable_weight_kg",
-      "uk", "usa", "uae", "notes"
-    ]
-  };
-
   // ─── Prompt ───────────────────────────────────────────────────────────────────
   const sourceInstructions = sourceMarket
-    ? `\n\nCRITICAL SOURCE-MARKET RULE:
+    ? `
+
+CRITICAL SOURCE-MARKET RULE:
 The pasted URL is from the ${sourceMarketLabel(sourceMarket)}.
-Step 1 — Open the EXACT pasted URL. Read the product name, brand, model, variant, and price directly from that page. This IS the ${sourceMarket.route.toUpperCase()} route price in ${sourceMarket.currency}. Do not search for a substitute or use a different regional store for this route.
-Step 2 — Using the product identity from Step 1, separately search the other two markets.
-NEVER put USD pricing into the AED field. NEVER put USD pricing into the GBP field. Each route must use its own regional store and currency.`
+Step 1 — Use the web_search tool to fetch the EXACT pasted URL: ${url}
+Read the product name, brand, model, variant, and price directly from that page.
+This is your authoritative ${sourceMarket.route.toUpperCase()} price in ${sourceMarket.currency}.
+Do NOT substitute a different regional store for this route.
+Step 2 — Using the product identity from Step 1, search the other two markets separately.
+NEVER put USD pricing into the AED field. NEVER put USD pricing into the GBP field.`
     : "";
 
   const asinInstructions = sourceAsin
-    ? `\n\nAmazon ASIN: ${sourceAsin}. Use this as the primary product identifier across all three markets. On Amazon UAE use amazon.ae, on Amazon UK use amazon.co.uk, on Amazon US use amazon.com — always with this exact ASIN.`
+    ? `
+
+Amazon ASIN: ${sourceAsin}
+Use this ASIN across all three markets:
+- UAE price: search amazon.ae for ASIN ${sourceAsin}
+- UK price: search amazon.co.uk for ASIN ${sourceAsin}
+- USA price: search amazon.com for ASIN ${sourceAsin}`
     : "";
 
-  const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service.
+  const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service. A client has pasted a product URL and needs a landed price quote.
 
-Product URL pasted by the client:
-${url}${sourceInstructions}${asinInstructions}
+Product URL: ${url}${sourceInstructions}${asinInstructions}
 
-Steps:
-1. Open the pasted URL. Identify the EXACT product: title, brand, model/SKU/ASIN, colour, size, storage, pack size, variant.
-2. Find the current price for that exact product in each market:
-   - UAE: amazon.ae or noon.com/uae — price in AED
-   - UK: amazon.co.uk — price in GBP
-   - USA: amazon.com — price in USD
-3. Estimate packed shipping weight and box dimensions for air freight.
+YOUR TASK:
+1. Fetch the pasted URL using web_search to get the exact product details and source market price.
+2. Search the other two markets for the same exact product.
+3. Estimate packed shipping weight and dimensions for air freight to Tanzania.
+
+Markets needed:
+- UAE: amazon.ae or noon.com/uae — price in AED
+- UK: amazon.co.uk — price in GBP  
+- USA: amazon.com — price in USD
 
 Cross-market rules:
-- Match by brand + model/SKU/ASIN + variant. Do not quote a different product.
-- If a market has no exact match, return null for that route's price.
-- A close official variant is acceptable at confidence "low" or "medium" only.
-- One or two null routes is fine — never force a result.
+- Match by brand + model + ASIN/SKU + exact variant (colour, size, storage).
+- If a market has no exact match, set that route's price to null.
+- Never substitute a different product to fill a route.
+- One or two null routes is acceptable.
 
 Weight rules:
 - actual_weight_kg: real packed weight in kg.
 - dimensions_cm: packed box length, width, height in cm.
 - volumetric_weight_kg = length * width * height / 5000.
-- chargeable_weight_kg = max(actual, volumetric).
-- For bulky/light items (bags, shoes, toys, bedding, lamps) lean toward higher volumetric.
+- chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
+- For bulky/light items (bags, shoes, toys, bedding, lamps) lean toward higher volumetric estimates.
 
-Return only the structured JSON. No rates, markup, or fee breakdowns. Do not quote weapons, alcohol, drugs, adult items, gambling products, or unsafe products.`;
+IMPORTANT: After doing your research, respond with ONLY a single valid JSON object in this exact structure. No explanation before or after, just the JSON:
 
-  // ─── Call OpenAI with a single AbortController covering the full request ──────
-  // Bug 5 + 8 fix: one controller and timeout wraps fetch AND response.json().
+{
+  "name": "exact product name max 80 chars",
+  "brand": "brand name or null",
+  "model": "model/SKU/ASIN/variant or null",
+  "actual_weight_kg": 0.5,
+  "dimensions_cm": { "length": 20, "width": 15, "height": 5 },
+  "volumetric_weight_kg": 0.3,
+  "chargeable_weight_kg": 0.5,
+  "uk": {
+    "price": 29.99,
+    "currency": "GBP",
+    "store": "Amazon UK",
+    "matched_product_name": "exact title found",
+    "product_url": "https://...",
+    "confidence": "high"
+  },
+  "usa": {
+    "price": 35.99,
+    "currency": "USD",
+    "store": "Amazon US",
+    "matched_product_name": "exact title found",
+    "product_url": "https://...",
+    "confidence": "high"
+  },
+  "uae": {
+    "price": 128.90,
+    "currency": "AED",
+    "store": "Amazon UAE",
+    "matched_product_name": "exact title found",
+    "product_url": "https://...",
+    "confidence": "high"
+  },
+  "notes": "brief note about the quote"
+}
+
+Use null for price fields where no exact match was found. Do not quote weapons, alcohol, drugs, adult items, or unsafe products.`;
+
+  // ─── Call Anthropic API ───────────────────────────────────────────────────────
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 42000);
+  const timeout = setTimeout(() => controller.abort(), 55000);
 
   let response, data;
   try {
-    response = await fetch("https://api.openai.com/v1/responses", {
+    response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        // Bug 1 fix: correct tool name is "web_search_preview" not "web_search"
-        tools: [{ type: "web_search_preview" }],
-        tool_choice: "auto",
-        input: prompt,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "on_trend_quote_v7",
-            strict: true,
-            schema
+        model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        tools: [
+          {
+            type: "web_search_20250305",
+            name: "web_search",
+            max_uses: 6
           }
-        }
+        ],
+        messages: [
+          { role: "user", content: prompt }
+        ]
       })
     });
 
-    // Bug 8 fix: .json() is inside the try so the AbortController still covers it.
     data = await response.json();
   } catch (err) {
     clearTimeout(timeout);
@@ -405,27 +352,33 @@ Return only the structured JSON. No rates, markup, or fee breakdowns. Do not quo
         error: "The quote lookup took too long. Please try again or send the link on WhatsApp."
       });
     }
-    return json(500, { error: "Network error reaching OpenAI. Please try again." });
+    return json(500, { error: "Network error reaching Anthropic. Please try again." });
   }
 
   clearTimeout(timeout);
 
   if (!response.ok) {
-    const message = data?.error?.message || "OpenAI request failed.";
+    const message = data?.error?.message || "Anthropic API request failed.";
+    console.error("Anthropic error:", JSON.stringify(data));
     return json(response.status >= 500 ? 502 : 400, { error: message });
   }
 
-  const outputText = getOutputText(data).trim();
-  if (!outputText) {
+  // Extract the text content from Claude's response
+  // Claude returns an array of content blocks — find the last text block
+  const textBlock = (data.content || [])
+    .filter(block => block.type === "text")
+    .pop();
+
+  if (!textBlock?.text) {
+    console.error("No text block in Anthropic response:", JSON.stringify(data).slice(0, 500));
     return json(502, {
       error: "No quote data was returned. Please try another product link."
     });
   }
 
-  let parsed;
-  try {
-    parsed = JSON.parse(outputText);
-  } catch (_) {
+  const parsed = extractJson(textBlock.text);
+  if (!parsed) {
+    console.error("Could not parse JSON from Claude response:", textBlock.text.slice(0, 500));
     return json(502, { error: "The quote response could not be read. Please try again." });
   }
 
