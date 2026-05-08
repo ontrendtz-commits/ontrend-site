@@ -11,28 +11,23 @@ exports.handler = async function(event) {
     return { statusCode: 400, body: JSON.stringify({ error: "Invalid request body" }) };
   }
 
-  if (!url) {
-    return { statusCode: 400, body: JSON.stringify({ error: "No URL provided" }) };
-  }
-
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: "API key not configured" }) };
-  }
 
   const prompt = `You are a product research assistant for On Trend, a Tanzania-based shopping service.
 
 Given this product URL: ${url}
 
-1. Identify the product name (max 60 chars)
-2. Find the price on the linked page
-3. Search for the SAME product on the other two markets (Amazon UK in GBP, Amazon US in USD, Noon or Amazon UAE in AED)
-4. Estimate the shipping weight in kg based on product type and specs
+Search for this product and find:
+1. Product name (max 60 chars)
+2. Price in GBP on Amazon UK
+3. Price in USD on Amazon US  
+4. Price in AED on Noon UAE
+5. Estimated shipping weight in kg
 
-Respond ONLY with raw JSON, no markdown, no explanation:
-{"name":"product name","weight_kg":0.0,"uk":{"price":0.00,"currency":"GBP","store":"Amazon UK"},"usa":{"price":0.00,"currency":"USD","store":"Amazon US"},"uae":{"price":0.00,"currency":"AED","store":"Noon"}}
+Respond ONLY with raw JSON:
+{"name":"product name","weight_kg":0.5,"uk":{"price":0.00,"currency":"GBP","store":"Amazon UK"},"usa":{"price":0.00,"currency":"USD","store":"Amazon US"},"uae":{"price":0.00,"currency":"AED","store":"Noon"}}
 
-Use null for price if not found in that market.`;
+Use null for price if not found.`;
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -40,13 +35,11 @@ Use null for price if not found in that market.`;
       headers: {
         "Content-Type": "application/json",
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": "web-search-2025-03-05"
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2000,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        model: "claude-opus-4-5",
+        max_tokens: 1024,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -55,37 +48,33 @@ Use null for price if not found in that market.`;
 
     if (!response.ok) {
       return {
-        statusCode: response.status,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Anthropic API error", details: data })
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Anthropic error: " + JSON.stringify(data) })
       };
     }
 
-    const textBlocks = (data.content || []).filter(b => b.type === "text");
-    const rawText = textBlocks.map(b => b.text).join("");
+    const rawText = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
     const jsonMatch = rawText.replace(/```json|```/g, "").trim().match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "Could not parse product data", raw: rawText })
+        statusCode: 200,
+        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Parse error", raw: rawText })
       };
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      },
-      body: JSON.stringify(parsed)
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+      body: jsonMatch[0]
     };
 
   } catch (err) {
     return {
-      statusCode: 500,
+      statusCode: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({ error: err.message })
     };
   }
