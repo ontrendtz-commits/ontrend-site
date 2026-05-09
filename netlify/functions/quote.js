@@ -44,8 +44,6 @@ function getCacheKey(url, asin) {
   return url;
 }
 
-// Returns marketplace info if this is an Amazon or Noon URL (single-quote mode)
-// Returns null for everything else (comparison mode)
 function detectAmazonMarket(value) {
   try {
     const host = new URL(value).hostname.toLowerCase();
@@ -130,10 +128,9 @@ function extractJson(text) {
   return null;
 }
 
-// ─── Single-quote mode (Amazon / Noon) ───────────────────────────────────────
 async function fetchSingleQuote(url, market, asin, apiKey, signal) {
   const asinLine = asin
-    ? `\nASIN: ${asin} — use this as the product identifier on ${market.domain}.`
+    ? `\nASIN: ${asin} — search for this exact ASIN on ${market.domain} to find the current live price.`
     : "";
 
   const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service.
@@ -142,20 +139,20 @@ The client has pasted this product URL:
 ${url}${asinLine}
 
 TASK:
-1. Search for this exact product on ${market.store} (${market.domain}) and find its current live price in ${market.currency}.
-2. Get the exact product name, brand, and model/variant.
-3. Estimate the packed shipping weight and box dimensions for air freight.
+Use web_search to find the current live price of this exact product on ${market.store} (${market.domain}).
+Then return the product name, brand, model, price in ${market.currency}, and estimated packed shipping weight and dimensions.
 
-Rules:
+Important rules:
 - The price MUST be in ${market.currency} from ${market.domain} only.
-- Do not substitute a different product or regional store.
-- Use the ASIN if provided to look up the exact listing.
+- Do not substitute a different product or a different regional Amazon store.
+- Search specifically for ASIN ${asin || "from the URL"} on ${market.domain}.
 - actual_weight_kg: real packed weight in kg.
-- dimensions_cm: packed box dimensions in cm.
+- dimensions_cm: packed box dimensions in cm (length, width, height).
 - volumetric_weight_kg = length * width * height / 5000.
 - chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
+- For bulky or light items lean toward higher volumetric estimates.
 
-Respond with ONLY this JSON, no text before or after:
+You MUST respond with ONLY a valid JSON object and nothing else — no explanation, no markdown, no text before or after. Just the raw JSON:
 
 {
   "name": "exact product name max 80 chars",
@@ -169,7 +166,7 @@ Respond with ONLY this JSON, no text before or after:
   "dimensions_cm": { "length": 20, "width": 15, "height": 5 },
   "volumetric_weight_kg": 0.3,
   "chargeable_weight_kg": 0.5,
-  "notes": "brief note"
+  "notes": "brief note about the product"
 }`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -183,25 +180,44 @@ Respond with ONLY this JSON, no text before or after:
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
       max_tokens: 2000,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
       messages: [{ role: "user", content: prompt }]
     })
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message || "Anthropic API error");
+  if (!response.ok) {
+    console.error("Anthropic API error:", JSON.stringify(data));
+    throw new Error(data?.error?.message || "Anthropic API error");
+  }
+
+  // Log full Claude response for debugging
+  console.log("Claude raw content blocks:", JSON.stringify(data.content).slice(0, 3000));
 
   const textBlock = (data.content || []).filter(b => b.type === "text").pop();
-  if (!textBlock?.text) throw new Error("No text in response");
+  if (!textBlock?.text) {
+    console.error("No text block found. Full response:", JSON.stringify(data).slice(0, 1000));
+    throw new Error("No text in response");
+  }
+
+  console.log("Claude text response:", textBlock.text.slice(0, 1000));
 
   const parsed = extractJson(textBlock.text);
-  if (!parsed) throw new Error("Could not parse JSON from response");
-  if (!parsed.price || parsed.price <= 0) throw new Error("No price found");
+  if (!parsed) {
+    console.error("Could not extract JSON from:", textBlock.text.slice(0, 500));
+    throw new Error("Could not parse JSON from response");
+  }
+
+  console.log("Parsed result:", JSON.stringify(parsed));
+
+  if (!parsed.price || parsed.price <= 0) {
+    console.error("No valid price in parsed result:", JSON.stringify(parsed));
+    throw new Error("No price found");
+  }
 
   return parsed;
 }
 
-// ─── Comparison mode (non-Amazon links) ──────────────────────────────────────
 async function fetchComparisonQuote(url, apiKey, signal) {
   const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service.
 
@@ -210,7 +226,7 @@ ${url}
 
 TASK:
 1. Open the pasted URL and identify the exact product: name, brand, model, variant.
-2. Find the current price for this exact product in all three markets:
+2. Find the current live price for this exact product in all three markets:
    - UAE: amazon.ae or noon.com/uae — price in AED
    - UK: amazon.co.uk — price in GBP
    - USA: amazon.com — price in USD
@@ -228,7 +244,7 @@ Weight rules:
 - volumetric_weight_kg = length * width * height / 5000.
 - chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
 
-Respond with ONLY this JSON, no text before or after:
+You MUST respond with ONLY a valid JSON object and nothing else — no explanation, no markdown, no text before or after. Just the raw JSON:
 
 {
   "name": "exact product name max 80 chars",
@@ -282,21 +298,38 @@ Respond with ONLY this JSON, no text before or after:
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data?.error?.message || "Anthropic API error");
+  if (!response.ok) {
+    console.error("Anthropic API error:", JSON.stringify(data));
+    throw new Error(data?.error?.message || "Anthropic API error");
+  }
+
+  console.log("Claude raw content blocks:", JSON.stringify(data.content).slice(0, 3000));
 
   const textBlock = (data.content || []).filter(b => b.type === "text").pop();
-  if (!textBlock?.text) throw new Error("No text in response");
+  if (!textBlock?.text) {
+    console.error("No text block found. Full response:", JSON.stringify(data).slice(0, 1000));
+    throw new Error("No text in response");
+  }
+
+  console.log("Claude text response:", textBlock.text.slice(0, 1000));
 
   const parsed = extractJson(textBlock.text);
-  if (!parsed) throw new Error("Could not parse JSON from response");
+  if (!parsed) {
+    console.error("Could not extract JSON from:", textBlock.text.slice(0, 500));
+    throw new Error("Could not parse JSON from response");
+  }
+
+  console.log("Parsed result:", JSON.stringify(parsed));
 
   const hasAnyPrice = [parsed.uk?.price, parsed.usa?.price, parsed.uae?.price].some(Boolean);
-  if (!hasAnyPrice) throw new Error("No prices found");
+  if (!hasAnyPrice) {
+    console.error("No prices in parsed result:", JSON.stringify(parsed));
+    throw new Error("No prices found");
+  }
 
   return parsed;
 }
 
-// ─── Handler ──────────────────────────────────────────────────────────────────
 exports.handler = async function (event) {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers, body: "" };
   if (event.httpMethod !== "POST") return json(405, { error: "Method not allowed" });
@@ -320,6 +353,8 @@ exports.handler = async function (event) {
   const cacheKey = getCacheKey(url, asin);
   const isSingleMode = !!market;
 
+  console.log(`Mode: ${isSingleMode ? "single" : "comparison"} | Market: ${market?.route || "none"} | ASIN: ${asin || "none"}`);
+
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return json(200, { ...cached.data, cached: true });
@@ -339,7 +374,6 @@ exports.handler = async function (event) {
     const orderRef = makeOrderRef();
 
     if (isSingleMode) {
-      // ── Amazon / Noon: single quote ──────────────────────────────────────
       const raw = await fetchSingleQuote(url, market, asin, apiKey, controller.signal);
       const weights = calculateChargeableWeight(raw);
 
@@ -370,7 +404,6 @@ exports.handler = async function (event) {
       return json(200, result);
 
     } else {
-      // ── Non-Amazon: comparison quote ─────────────────────────────────────
       const raw = await fetchComparisonQuote(url, apiKey, controller.signal);
       const weights = calculateChargeableWeight(raw);
 
