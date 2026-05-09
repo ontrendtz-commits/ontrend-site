@@ -226,7 +226,7 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
 
   if (!parsed.price || parsed.price <= 0) {
     console.error("No valid price:", JSON.stringify(parsed));
-    throw new Error("No price found");
+    throw new Error("Amazon prices aren't always visible online — send us the link on WhatsApp and we'll get you a quote manually.");
   }
 
   return parsed;
