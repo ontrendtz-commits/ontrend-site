@@ -460,11 +460,7 @@ async function getQuote() {
     show("product-card");
     show("results-area");
 
-    if (data.mode === "single") {
-      renderSingle(data);
-    } else {
-      renderComparison(data);
-    }
+    renderSingle(data);
 
   } catch (e) {
     clearInterval(st);
