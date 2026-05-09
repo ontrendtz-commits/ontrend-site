@@ -174,70 +174,81 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:28px 2
       <button class="btn-secondary" onclick="reset()">Try again</button>
     </div>
 
-    <div id="results-area">
-      <span class="results-label">Your landed price in Tanzania</span>
-      <div class="route-card" id="card-uk">
-        <div class="route-left">
-          <div class="route-flag">&#127468;&#127463;</div>
-          <div class="route-name">Ship from UK</div>
-          <div class="route-sub" id="uk-sub">&mdash;</div>
+   <div id="results-area">
+      <div id="single-result" style="display:none;flex-direction:column;gap:10px">
+        <span class="results-label">Your landed price in Tanzania</span>
+        <div class="route-card" id="single-card">
+          <div class="route-left">
+            <div class="route-flag" id="single-flag"></div>
+            <div class="route-name" id="single-store"></div>
+            <div class="route-sub" id="single-sub"></div>
+          </div>
+          <div class="route-price">
+            <div class="price-tzs" id="single-price"></div>
+            <div class="price-currency">TZS</div>
+            <div class="delivery-time" id="single-delivery"></div>
+          </div>
         </div>
-        <div class="route-price">
-          <div class="price-tzs" id="uk-price">&mdash;</div>
-          <div class="price-currency">TZS</div>
-          <div class="delivery-time" id="uk-delivery">2&ndash;3 weeks</div>
+        <div class="note-card">Includes all shipping and handling fees. Final invoice confirmed on order.</div>
+        <div class="confirm-card">
+          <div class="confirm-title">Ready to order?</div>
+          <div class="confirm-text" id="single-confirm-text"></div>
+          <div class="confirm-actions">
+            <a class="btn-primary confirm-btn" id="single-confirm-link" href="#" target="_blank">Confirm order on WhatsApp</a>
+          </div>
         </div>
+        <button class="btn-secondary" onclick="reset()">Search another product</button>
       </div>
-      <div class="route-card" id="card-usa">
-        <div class="route-left">
-          <div class="route-flag">&#127482;&#127480;</div>
-          <div class="route-name">Ship from USA</div>
-          <div class="route-sub" id="usa-sub">&mdash;</div>
-        </div>
-        <div class="route-price">
-          <div class="price-tzs" id="usa-price">&mdash;</div>
-          <div class="price-currency">TZS</div>
-          <div class="delivery-time" id="usa-delivery">Approx. 1 month</div>
-        </div>
-      </div>
-      <div class="route-card" id="card-uae">
-        <div class="route-left">
-          <div class="route-flag">&#127462;&#127466;</div>
-          <div class="route-name">Ship from UAE</div>
-          <div class="route-sub" id="uae-sub">&mdash;</div>
-        </div>
-        <div class="route-price">
-          <div class="price-tzs" id="uae-price">&mdash;</div>
-          <div class="price-currency">TZS</div>
-          <div class="delivery-time" id="uae-delivery">5&ndash;7 working days</div>
-        </div>
-      </div>
-      <div class="note-card">Prices include all shipping and handling fees. Final invoice confirmed on order. Estimates may vary slightly.</div>
-      <div class="confirm-card" id="confirm-card">
-        <div class="confirm-title">Ready to confirm?</div>
-        <div class="confirm-text" id="confirm-summary">Choose your preferred route and send it to us on WhatsApp. We’ll confirm availability and final invoice before purchase.</div>
-        <div class="confirm-actions">
-          <a class="btn-primary confirm-btn" id="confirm-best-link" href="https://wa.me/255687882980?text=Hi%20On%20Trend!%20I%27d%20like%20to%20confirm%20my%20order" target="_blank">Confirm best price</a>
-          <a class="btn-secondary confirm-btn" id="confirm-manual-link" href="https://wa.me/255687882980?text=Hi%20On%20Trend!%20I%20need%20help%20confirming%20my%20order" target="_blank">Ask before ordering</a>
-        </div>
-      </div>
-      <button class="btn-secondary" onclick="reset()">Search another product</button>
-    </div>
-  </div>
 
-  <div class="cta-strip">
-    <a class="cta-btn" id="whatsapp-order-link" href="https://wa.me/255687882980?text=Hi%20On%20Trend!%20I%27d%20like%20to%20place%20an%20order" target="_blank">
-      <div class="cta-icon">&#128172;</div>
-      <div class="cta-label">Order via WhatsApp</div>
-      <div class="cta-sub">Fastest response</div>
-    </a>
-    <a class="cta-btn" href="https://www.instagram.com/ontrendtz/" target="_blank">
-      <div class="cta-icon">&#128247;</div>
-      <div class="cta-label">DM on Instagram</div>
-      <div class="cta-sub">@ontrendtz</div>
-    </a>
-  </div>
-</div>
+      <div id="comparison-result" style="display:none;flex-direction:column;gap:10px">
+        <span class="results-label">Your landed price in Tanzania</span>
+        <div class="route-card" id="card-uk">
+          <div class="route-left">
+            <div class="route-flag">&#127468;&#127463;</div>
+            <div class="route-name">Ship from UK</div>
+            <div class="route-sub" id="uk-sub">&mdash;</div>
+          </div>
+          <div class="route-price">
+            <div class="price-tzs" id="uk-price">&mdash;</div>
+            <div class="price-currency">TZS</div>
+            <div class="delivery-time">2&ndash;3 weeks</div>
+          </div>
+        </div>
+        <div class="route-card" id="card-usa">
+          <div class="route-left">
+            <div class="route-flag">&#127482;&#127480;</div>
+            <div class="route-name">Ship from USA</div>
+            <div class="route-sub" id="usa-sub">&mdash;</div>
+          </div>
+          <div class="route-price">
+            <div class="price-tzs" id="usa-price">&mdash;</div>
+            <div class="price-currency">TZS</div>
+            <div class="delivery-time">Approx. 1 month</div>
+          </div>
+        </div>
+        <div class="route-card" id="card-uae">
+          <div class="route-left">
+            <div class="route-flag">&#127462;&#127466;</div>
+            <div class="route-name">Ship from UAE</div>
+            <div class="route-sub" id="uae-sub">&mdash;</div>
+          </div>
+          <div class="route-price">
+            <div class="price-tzs" id="uae-price">&mdash;</div>
+            <div class="price-currency">TZS</div>
+            <div class="delivery-time">5&ndash;7 working days</div>
+          </div>
+        </div>
+        <div class="note-card">Includes all shipping and handling fees. Final invoice confirmed on order.</div>
+        <div class="confirm-card">
+          <div class="confirm-title">Ready to order?</div>
+          <div class="confirm-text" id="comparison-confirm-text"></div>
+          <div class="confirm-actions">
+            <a class="btn-primary confirm-btn" id="comparison-confirm-link" href="#" target="_blank">Confirm order on WhatsApp</a>
+          </div>
+        </div>
+        <button class="btn-secondary" onclick="reset()">Search another product</button>
+      </div>
+    </div>
 
 <!-- FAQ PAGE -->
 <div class="page" id="page-faq">
@@ -278,126 +289,245 @@ footer{background:var(--white);border-top:1px solid var(--border);padding:28px 2
 </footer>
 
 <script>
-const C={USD_TZS:2700,GBP_TZS:3600,AED_TZS:800,USA_KG:25,UK_KG:7,UAE_KG:12,INS:0.03,M:0.20};
-function calcTZS(p,cur,kg){
-  const ins=p*C.INS;let t;
-  if(cur==="GBP")t=(p+ins+kg*C.UK_KG)*(1+C.M)*C.GBP_TZS;
-  else if(cur==="USD")t=(p+ins+kg*C.USA_KG)*(1+C.M)*C.USD_TZS;
-  else t=(p*C.AED_TZS+ins*C.AED_TZS+kg*C.UAE_KG*C.USD_TZS)*(1+C.M);
-  return Math.ceil(t/1000)*1000;
-}
-function fmtN(n){return n.toLocaleString("en-US")}
-function makeClientOrderRef(){
-  const d=new Date().toISOString().slice(0,10).replace(/-/g,"");
-  const c=Math.random().toString(36).slice(2,6).toUpperCase();
-  return "OT-"+d+"-"+c;
-}
-function setOrderLinks(obj, vals){
-  const ref=obj.order_ref||makeClientOrderRef();
-  const labels={uk:"UK",usa:"USA",uae:"UAE"};
-  const timelines={uk:"2-3 weeks",usa:"approx. 1 month",uae:"5-7 working days"};
-  const available=Object.entries(vals).filter(([,v])=>v!==null).sort((a,b)=>a[1]-b[1]);
-  const best=available[0];
-  const bestText=best?" Best route: "+labels[best[0]]+" at TZS "+fmtN(best[1])+" ("+timelines[best[0]]+").":"";
-  const productLink=obj.source_url||document.getElementById("url-input").value.trim();
-  const base="Hi On Trend! I’d like to place an order. Ref: "+ref+". Product: "+(obj.name||"Product")+". Link: "+productLink+".";
-  const wa=document.getElementById("whatsapp-order-link");
-  if(wa)wa.href="https://wa.me/255687882980?text="+encodeURIComponent(base+bestText);
-  const bestLink=document.getElementById("confirm-best-link");
-  if(bestLink&&best){bestLink.href="https://wa.me/255687882980?text="+encodeURIComponent(base+" I’d like to confirm the "+labels[best[0]]+" route at TZS "+fmtN(best[1])+". Delivery: "+timelines[best[0]]+".");}
-  const manualLink=document.getElementById("confirm-manual-link");
-  if(manualLink)manualLink.href="https://wa.me/255687882980?text="+encodeURIComponent(base+" Please help me confirm this quote before ordering.");
-  const summary=document.getElementById("confirm-summary");
-  if(summary){summary.textContent=best?"Quote ref "+ref+" · Best option: "+labels[best[0]]+" · TZS "+fmtN(best[1])+" · "+timelines[best[0]]:"Quote ref "+ref+" · Send this to us for manual confirmation.";}
-  const meta=document.getElementById("prod-meta");
-  if(meta&&!meta.textContent.includes("Ref:"))meta.textContent=(meta.textContent?meta.textContent+" · ":"")+"Ref: "+ref;
+const C = {
+  USD_TZS: 2700, GBP_TZS: 3600, AED_TZS: 800,
+  USA_KG: 25, UK_KG: 7, UAE_KG: 12,
+  INS: 0.03, M: 0.20
+};
+
+function calcTZS(price, currency, kg) {
+  const ins = price * C.INS;
+  let t;
+  if (currency === "GBP") t = (price + ins + kg * C.UK_KG) * (1 + C.M) * C.GBP_TZS;
+  else if (currency === "USD") t = (price + ins + kg * C.USA_KG) * (1 + C.M) * C.USD_TZS;
+  else t = (price * C.AED_TZS + ins * C.AED_TZS + kg * C.UAE_KG * C.USD_TZS) * (1 + C.M);
+  return Math.ceil(t / 1000) * 1000;
 }
 
-function show(id){document.getElementById(id).classList.add("show")}
-function hide(id){document.getElementById(id).classList.remove("show")}
-const MSGS=["Looking up your product…","Searching UK, US & UAE prices…","Estimating shipping weight…","Calculating your landed price…"];
+function fmtN(n) { return n.toLocaleString("en-US"); }
+
+const FLAGS = { uk: "&#127468;&#127463;", usa: "&#127482;&#127480;", uae: "&#127462;&#127466;" };
+const DELIVERY = { uk: "2–3 weeks", usa: "Approx. 1 month", uae: "5–7 working days" };
+const CURRENCY_LABELS = { GBP: "GBP", USD: "USD", AED: "AED" };
+
+function buildWhatsApp(obj, tzs, route) {
+  const text = [
+    "Hi On Trend! I'd like to confirm an order.",
+    `Ref: ${obj.order_ref}`,
+    `Product: ${obj.name}`,
+    `Link: ${obj.source_url}`,
+    route ? `Route: ${route}` : "",
+    `Quoted price: TZS ${fmtN(tzs)}`
+  ].filter(Boolean).join("\n");
+  return "https://wa.me/255687882980?text=" + encodeURIComponent(text);
+}
+
+function show(id) { document.getElementById(id).style.display = "flex"; }
+function hide(id) { document.getElementById(id).style.display = "none"; }
+
+const MSGS = [
+  "Looking up your product…",
+  "Reading the live price…",
+  "Estimating shipping weight…",
+  "Calculating your landed price…"
+];
 let st;
-function cycleStatus(){let i=0;document.getElementById("status-text").textContent=MSGS[i];st=setInterval(()=>{i=(i+1)%MSGS.length;document.getElementById("status-text").textContent=MSGS[i];},2200)}
-function reset(){
-  clearInterval(st);hide("status-area");hide("product-card");hide("results-area");hide("error-card");
-  document.getElementById("url-input").value="";document.getElementById("quote-btn").disabled=false;
-  ["card-uk","card-usa","card-uae"].forEach(id=>{document.getElementById(id).classList.remove("cheapest","unavailable")});
+function cycleStatus() {
+  let i = 0;
+  document.getElementById("status-text").textContent = MSGS[i];
+  st = setInterval(() => {
+    i = (i + 1) % MSGS.length;
+    document.getElementById("status-text").textContent = MSGS[i];
+  }, 2200);
 }
-async function getQuote(){
-  const url=document.getElementById("url-input").value.trim();
-  if(!url){document.getElementById("url-input").focus();return;}
-  document.getElementById("quote-btn").disabled=true;
-  hide("error-card");hide("product-card");hide("results-area");show("status-area");cycleStatus();
-  try{
-    const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),45000);
-    const r=await fetch("/.netlify/functions/quote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:url}),signal:controller.signal});
-    clearTimeout(timeout);
-    const data=await r.json();clearInterval(st);
-    if(!r.ok||data.error)throw new Error(data.error||"We could not complete this quote right now.");
-    const obj=data;
-    hide("status-area");
-    document.getElementById("prod-name").textContent=obj.name;
-    document.getElementById("prod-meta").textContent="Shipping weight: ~"+obj.weight_kg+"kg";
-    show("product-card");
-    const routes=[{key:"uk",card:"card-uk",pe:"uk-price",se:"uk-sub"},{key:"usa",card:"card-usa",pe:"usa-price",se:"usa-sub"},{key:"uae",card:"card-uae",pe:"uae-price",se:"uae-sub"}];
-    const vals={};
-    routes.forEach(({key,card,pe,se})=>{
-      const d=obj[key];const c=document.getElementById(card);
-      if(!d||!d.price){c.classList.add("unavailable");document.getElementById(pe).textContent="N/A";document.getElementById(se).textContent="Not available";vals[key]=null;}
-      else{const tzs=calcTZS(d.price,d.currency,obj.weight_kg);vals[key]=tzs;document.getElementById(pe).textContent=fmtN(tzs);document.getElementById(se).textContent=d.currency+" "+d.price.toFixed(2)+" · "+d.store;}
+
+function reset() {
+  clearInterval(st);
+  hide("status-area");
+  hide("product-card");
+  hide("results-area");
+  hide("error-card");
+  hide("single-result");
+  hide("comparison-result");
+  document.getElementById("url-input").value = "";
+  document.getElementById("quote-btn").disabled = false;
+  ["card-uk", "card-usa", "card-uae"].forEach(id => {
+    document.getElementById(id).classList.remove("cheapest", "unavailable");
+  });
+}
+
+function renderSingle(obj) {
+  const route = obj.route;
+  const tzs = calcTZS(route.price, route.currency, obj.weight_kg);
+
+  document.getElementById("single-flag").innerHTML = FLAGS[route.market] || "";
+  document.getElementById("single-store").textContent = route.store;
+  document.getElementById("single-sub").textContent =
+    `${route.currency} ${fmtN(route.price)}`;
+  document.getElementById("single-price").textContent = fmtN(tzs);
+  document.getElementById("single-delivery").textContent = DELIVERY[route.market] || "";
+  document.getElementById("single-confirm-text").textContent =
+    `Ref ${obj.order_ref} · ${obj.name} · TZS ${fmtN(tzs)} · ${DELIVERY[route.market] || ""}`;
+  document.getElementById("single-confirm-link").href =
+    buildWhatsApp(obj, tzs, route.store);
+
+  show("single-result");
+}
+
+function renderComparison(obj) {
+  const routes = [
+    { key: "uk", cardId: "card-uk", priceId: "uk-price", subId: "uk-sub" },
+    { key: "usa", cardId: "card-usa", priceId: "usa-price", subId: "usa-sub" },
+    { key: "uae", cardId: "card-uae", priceId: "uae-price", subId: "uae-sub" }
+  ];
+
+  const CURRENCIES = { uk: "GBP", usa: "USD", uae: "AED" };
+  const vals = {};
+
+  routes.forEach(({ key, cardId, priceId, subId }) => {
+    const d = obj[key];
+    const card = document.getElementById(cardId);
+    if (!d || !d.price) {
+      card.classList.add("unavailable");
+      document.getElementById(priceId).textContent = "N/A";
+      document.getElementById(subId).textContent = "Not available";
+      vals[key] = null;
+    } else {
+      const tzs = calcTZS(d.price, CURRENCIES[key], obj.weight_kg);
+      vals[key] = tzs;
+      document.getElementById(priceId).textContent = fmtN(tzs);
+      document.getElementById(subId).textContent =
+        `${d.currency} ${fmtN(d.price)} · ${d.store}`;
+    }
+  });
+
+  const available = routes.filter(r => vals[r.key] !== null);
+  if (available.length) {
+    const cheapest = available.reduce((a, b) => vals[a.key] < vals[b.key] ? a : b);
+    document.getElementById(cheapest.cardId).classList.add("cheapest");
+  }
+
+  const bestKey = available.length
+    ? available.reduce((a, b) => vals[a.key] < vals[b.key] ? a : b).key
+    : null;
+  const bestTzs = bestKey ? vals[bestKey] : null;
+  const bestRoute = bestKey
+    ? `${bestKey.toUpperCase()} · TZS ${fmtN(bestTzs)} · ${DELIVERY[bestKey]}`
+    : null;
+
+  document.getElementById("comparison-confirm-text").textContent = bestTzs
+    ? `Ref ${obj.order_ref} · ${obj.name} · Best price: TZS ${fmtN(bestTzs)}`
+    : `Ref ${obj.order_ref} · ${obj.name}`;
+  document.getElementById("comparison-confirm-link").href =
+    buildWhatsApp(obj, bestTzs, bestRoute);
+
+  show("comparison-result");
+}
+
+async function getQuote() {
+  const url = document.getElementById("url-input").value.trim();
+  if (!url) { document.getElementById("url-input").focus(); return; }
+
+  document.getElementById("quote-btn").disabled = true;
+  hide("error-card");
+  hide("product-card");
+  hide("results-area");
+  hide("single-result");
+  hide("comparison-result");
+  show("status-area");
+  cycleStatus();
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+
+    const r = await fetch("/.netlify/functions/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+      signal: controller.signal
     });
-    const avail=routes.filter(r=>vals[r.key]!==null);
-    if(avail.length){const cheap=avail.reduce((a,b)=>vals[a.key]<vals[b.key]?a:b);document.getElementById(cheap.card).classList.add("cheapest")}
-    setOrderLinks(obj,vals);
+
+    clearTimeout(timeout);
+    const data = await r.json();
+    clearInterval(st);
+
+    if (!r.ok || data.error) throw new Error(data.error || "Could not complete this quote.");
+
+    hide("status-area");
+
+    document.getElementById("prod-name").textContent = data.name;
+    document.getElementById("prod-meta").textContent =
+      `Ref: ${data.order_ref} · Shipping weight: ~${data.weight_kg}kg`;
+    show("product-card");
     show("results-area");
-  }catch(e){clearInterval(st);hide("status-area");document.getElementById("error-message").textContent=e.name==="AbortError"?"The quote lookup took too long. Please try again or contact us on WhatsApp.":e.message;show("error-card");document.getElementById("quote-btn").disabled=false;console.error(e)}
-}
-document.getElementById("url-input").addEventListener("keydown",e=>{if(e.key==="Enter")getQuote()});
 
-function showPage(p){
-  document.querySelectorAll(".page").forEach(el=>el.classList.remove("active"));
-  document.querySelectorAll(".nav-link").forEach(el=>el.classList.remove("active"));
-  document.getElementById("page-"+p).classList.add("active");
-  document.querySelector("[onclick=\"showPage('"+p+"')\"").classList.add("active");
-  window.scrollTo({top:0,behavior:"smooth"});
+    if (data.mode === "single") {
+      renderSingle(data);
+    } else {
+      renderComparison(data);
+    }
+
+  } catch (e) {
+    clearInterval(st);
+    hide("status-area");
+    document.getElementById("error-message").textContent =
+      e.name === "AbortError"
+        ? "The quote lookup took too long. Please try again or contact us on WhatsApp."
+        : e.message;
+    show("error-card");
+    document.getElementById("quote-btn").disabled = false;
+    console.error(e);
+  }
 }
 
-const FAQS=[
-  {q:"What does On Trend offer?",a:"We offer both <strong>in-stock</strong> and <strong>preorder</strong> items from the US, UK, and UAE &mdash; ranging from affordable everyday finds to high-end luxury goods."},
-  {q:"How do I place an order?",a:"Super simple! Send us a product link or description via <strong>WhatsApp or Instagram DM</strong> and we&rsquo;ll get back to you with a full quote including shipping."},
-  {q:"How long do preorders take?",a:"Estimated delivery times:<ul><li><strong>UAE:</strong> 5&ndash;7 working days</li><li><strong>UK:</strong> 2&ndash;3 weeks</li><li><strong>USA:</strong> approx. 1 month</li></ul>These are guidelines &mdash; shipping can occasionally be delayed due to factors outside our control."},
-  {q:"What are my payment options?",a:"You can choose from:<ul><li><strong>Full advance</strong> &mdash; and get a <strong>5% discount!</strong></li><li><strong>50/50</strong> &mdash; half upfront, half on delivery</li><li><strong>Full payment on delivery</strong></li></ul>"},
-  {q:"Do you offer discounts?",a:"Yes! Pay the <strong>full amount in advance</strong> and receive a <strong>5% discount</strong> on your order."},
-  {q:"Do you deliver across Tanzania?",a:"Yes &mdash; we ship <strong>nationwide!</strong> Delivery costs vary by location. Contact us for a quote to your area."},
-  {q:"Can I request a product not on your page?",a:"Absolutely. If it&rsquo;s available in the US, UK, or UAE and from a brand we work with, we&rsquo;ll source it for you."},
-  {q:"Can I send multiple product links in one order?",a:"Of course! We&rsquo;ll consolidate everything into a single quote and shipping calculation for you."},
-  {q:"Are your products 100% authentic?",a:"Yes &mdash; we only deal in <strong>100% original items</strong>. No replicas, no fakes. Ever."},
-  {q:"Do you source deals or suggest alternatives?",a:"Yes! Tell us your budget and we&rsquo;ll hunt down the best offers or suggest comparable alternatives."},
-  {q:"What is your refund policy for damaged items?",a:"If an item is <strong>damaged on arrival</strong> or lost in transit, we will offer a full refund. For items damaged after use, refunds depend on the original retailer&rsquo;s warranty policy."},
-  {q:"Can I cancel my order?",a:"Once an order is confirmed we typically place it the same day, so cancellations aren&rsquo;t guaranteed. If you change your mind, <strong>contact us immediately</strong> and we&rsquo;ll do our best to help."},
-  {q:"Do you accept returns on preorder items?",a:"No returns or exchanges for preordered items. However, we can <strong>post it for resale on our page</strong> &mdash; if someone buys it, we&rsquo;ll refund you the full amount."},
-  {q:"What about returns for in-stock items?",a:"Returns accepted <strong>within 24 hours</strong> only if the item is:<ul><li>In original condition</li><li>Undamaged, unstained, and unused</li></ul>"},
-  {q:"Is my payment refundable if I change my mind on a preorder?",a:"For preorders, unfortunately no &mdash; the item has already been ordered on your behalf. In-stock items can be returned within 24 hours under the conditions above."},
-  {q:"Will I get order updates?",a:"Yes! You&rsquo;ll be notified once your order is dispatched and kept informed of any delays or changes."},
-  {q:"Do you offer gift wrapping?",a:"Yes! We offer <strong>standard and floral gift packages</strong>, often in collaboration with renowned small businesses in Dar. DM us for options and pricing."},
-  {q:"Do you take bulk or custom gift orders?",a:"Absolutely. For <strong>weddings, birthdays, or corporate gifting</strong> &mdash; we&rsquo;ll put together something beautiful and customised for you."},
-  {q:"Do you take orders from all brands?",a:"We don&rsquo;t accept orders for certain brands due to their <strong>affiliation with the Israeli Regime</strong> amidst the ongoing genocide in Palestine. We acknowledge these brands are popular, but our business must operate in harmony with our core values. &#127477;&#127480; <strong>Free Palestine.</strong> DM us for the full list."},
+document.getElementById("url-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") getQuote();
+});
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+function showPage(p) {
+  document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".nav-link").forEach(el => el.classList.remove("active"));
+  document.getElementById("page-" + p).classList.add("active");
+  document.querySelector(`[onclick="showPage('${p}')"]`).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+const FAQS = [
+  { q: "What does On Trend offer?", a: "We offer both <strong>in-stock</strong> and <strong>preorder</strong> items from the US, UK, and UAE &mdash; ranging from affordable everyday finds to high-end luxury goods." },
+  { q: "How do I place an order?", a: "Super simple! Send us a product link or description via <strong>WhatsApp or Instagram DM</strong> and we&rsquo;ll get back to you with a full quote including shipping." },
+  { q: "How long do preorders take?", a: "Estimated delivery times:<ul><li><strong>UAE:</strong> 5&ndash;7 working days</li><li><strong>UK:</strong> 2&ndash;3 weeks</li><li><strong>USA:</strong> approx. 1 month</li></ul>These are guidelines &mdash; shipping can occasionally be delayed." },
+  { q: "What are my payment options?", a: "You can choose from:<ul><li><strong>Full advance</strong> &mdash; and get a <strong>5% discount!</strong></li><li><strong>50/50</strong> &mdash; half upfront, half on delivery</li><li><strong>Full payment on delivery</strong></li></ul>" },
+  { q: "Do you offer discounts?", a: "Yes! Pay the <strong>full amount in advance</strong> and receive a <strong>5% discount</strong> on your order." },
+  { q: "Do you deliver across Tanzania?", a: "Yes &mdash; we ship <strong>nationwide!</strong> Delivery costs vary by location. Contact us for a quote to your area." },
+  { q: "Can I request a product not on your page?", a: "Absolutely. If it&rsquo;s available in the US, UK, or UAE and from a brand we work with, we&rsquo;ll source it for you." },
+  { q: "Can I send multiple product links in one order?", a: "Of course! We&rsquo;ll consolidate everything into a single quote and shipping calculation for you." },
+  { q: "Are your products 100% authentic?", a: "Yes &mdash; we only deal in <strong>100% original items</strong>. No replicas, no fakes. Ever." },
+  { q: "Do you source deals or suggest alternatives?", a: "Yes! Tell us your budget and we&rsquo;ll hunt down the best offers or suggest comparable alternatives." },
+  { q: "What is your refund policy for damaged items?", a: "If an item is <strong>damaged on arrival</strong> or lost in transit, we will offer a full refund." },
+  { q: "Can I cancel my order?", a: "Once an order is confirmed we typically place it the same day, so cancellations aren&rsquo;t guaranteed. Contact us immediately if you change your mind." },
+  { q: "Do you accept returns on preorder items?", a: "No returns for preorders. However, we can <strong>post it for resale on our page</strong> &mdash; if someone buys it, we&rsquo;ll refund you the full amount." },
+  { q: "What about returns for in-stock items?", a: "Returns accepted <strong>within 24 hours</strong> only if the item is in original, undamaged, unused condition." },
+  { q: "Will I get order updates?", a: "Yes! You&rsquo;ll be notified once your order is dispatched and kept informed of any delays." },
+  { q: "Do you offer gift wrapping?", a: "Yes! We offer <strong>standard and floral gift packages</strong>. DM us for options and pricing." },
+  { q: "Do you take bulk or custom gift orders?", a: "Absolutely. For <strong>weddings, birthdays, or corporate gifting</strong> &mdash; we&rsquo;ll put together something beautiful and customised for you." },
+  { q: "Do you take orders from all brands?", a: "We don&rsquo;t accept orders for certain brands due to their <strong>affiliation with the Israeli Regime</strong>. &#127477;&#127480; <strong>Free Palestine.</strong> DM us for the full list." }
 ];
 
-const list=document.getElementById("faq-list");
-FAQS.forEach((f,i)=>{
-  const item=document.createElement("div");item.className="faq-item";
-  item.innerHTML='<button class="faq-q" onclick="toggleFaq('+i+')"><span>'+f.q+'</span><span class="faq-icon">+</span></button><div class="faq-a">'+f.a+"</div>";
+const list = document.getElementById("faq-list");
+FAQS.forEach((f, i) => {
+  const item = document.createElement("div");
+  item.className = "faq-item";
+  item.innerHTML = `<button class="faq-q" onclick="toggleFaq(${i})"><span>${f.q}</span><span class="faq-icon">+</span></button><div class="faq-a">${f.a}</div>`;
   list.appendChild(item);
 });
 
-function toggleFaq(i){
-  const items=document.querySelectorAll(".faq-item");
-  const item=items[i];const wasOpen=item.classList.contains("open");
-  items.forEach(el=>el.classList.remove("open"));
-  if(!wasOpen)item.classList.add("open");
+function toggleFaq(i) {
+  const items = document.querySelectorAll(".faq-item");
+  const item = items[i];
+  const wasOpen = item.classList.contains("open");
+  items.forEach(el => el.classList.remove("open"));
+  if (!wasOpen) item.classList.add("open");
 }
 </script>
-</body>
-</html>
