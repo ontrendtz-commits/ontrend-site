@@ -189,7 +189,9 @@ ${asin ? `Search for ASIN ${asin} on ${market.store} to get the exact current pr
 Rules:
 - The price MUST be in ${market.currency} only — do not convert or use a different currency.
 - Do not use prices from a different region or website than ${market.store}.
-- Get the actual current price shown on the product listing right now.
+- Get the actual current SELLING price shown on the product listing right now — this is the price the customer pays at checkout.
+- If there is a sale price or discounted price, use that — NOT the original crossed-out price.
+- Never use the "was" price, "compare at" price, or any struck-through price.
 - If the price is genuinely unavailable (hidden, out of stock, requires login), set price to null.
 - actual_weight_kg: real packed weight in kg — estimate from product specs or category norms.
 - dimensions_cm: packed box dimensions in cm (length, width, height).
