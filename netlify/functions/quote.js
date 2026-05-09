@@ -24,7 +24,7 @@ function isValidHttpUrl(value) {
 function normalizeUrl(value) {
   const parsed = new URL(value.trim());
   parsed.hash = "";
-  const KEEP_PARAMS = new Set(["th", "psc", "color", "size", "variant"]);
+  const KEEP_PARAMS = new Set(["th", "psc", "color", "colour", "size", "variant", "dwvar"]);
   const cleaned = new URLSearchParams();
   for (const [k, v] of parsed.searchParams.entries()) {
     if (KEEP_PARAMS.has(k.toLowerCase())) cleaned.set(k, v);
@@ -34,38 +34,74 @@ function normalizeUrl(value) {
   return parsed.toString();
 }
 
-function getCacheKey(url, asin) {
-  if (asin) {
-    try {
-      const host = new URL(url).hostname.toLowerCase();
-      return `asin:${host}:${asin}`;
-    } catch (_) {}
-  }
+function getCacheKey(url) {
+  try {
+    const u = new URL(url);
+    // For Amazon URLs use ASIN as cache key
+    const asinMatch = u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
+    if (asinMatch) return `asin:${u.hostname.toLowerCase()}:${asinMatch[1].toUpperCase()}`;
+  } catch (_) {}
   return url;
 }
 
-function detectAmazonMarket(value) {
+// Detect the market and currency from the URL
+// Returns { route, currency, store, domain, flag, delivery }
+// Defaults to USA/USD if region is ambiguous
+function detectMarket(value) {
   try {
     const host = new URL(value).hostname.toLowerCase();
     const path = new URL(value).pathname.toLowerCase();
 
+    // ── Amazon ──────────────────────────────────────────────────────────────
     if (host === "www.amazon.ae" || host === "amazon.ae") {
-      return { route: "uae", currency: "AED", store: "Amazon UAE", domain: "amazon.ae" };
-    }
-    if (host.includes("noon.com") && (path.startsWith("/uae") || path.startsWith("/en-ae"))) {
-      return { route: "uae", currency: "AED", store: "Noon UAE", domain: "noon.com" };
+      return { route: "uae", currency: "AED", store: "Amazon UAE", flag: "🇦🇪", delivery: "5–7 working days" };
     }
     if (host === "www.amazon.co.uk" || host === "amazon.co.uk") {
-      return { route: "uk", currency: "GBP", store: "Amazon UK", domain: "amazon.co.uk" };
+      return { route: "uk", currency: "GBP", store: "Amazon UK", flag: "🇬🇧", delivery: "2–3 weeks" };
     }
     if (host === "www.amazon.com" || host === "amazon.com") {
-      return { route: "usa", currency: "USD", store: "Amazon US", domain: "amazon.com" };
+      return { route: "usa", currency: "USD", store: "Amazon US", flag: "🇺🇸", delivery: "Approx. 1 month" };
     }
-    if (host.includes("walmart.com")) {
-      return { route: "usa", currency: "USD", store: "Walmart US", domain: "walmart.com" };
+
+    // ── Noon ────────────────────────────────────────────────────────────────
+    if (host.includes("noon.com") && (path.startsWith("/uae") || path.startsWith("/en-ae"))) {
+      return { route: "uae", currency: "AED", store: "Noon UAE", flag: "🇦🇪", delivery: "5–7 working days" };
     }
-  } catch (_) {}
-  return null;
+
+    // ── UK domains (.co.uk or /gb/ or /en-gb/ in path) ───────────────────
+    if (
+      host.endsWith(".co.uk") ||
+      path.includes("/en-gb/") ||
+      path.includes("/gb/") ||
+      path.startsWith("/gb")
+    ) {
+      return { route: "uk", currency: "GBP", store: host.replace("www.", ""), flag: "🇬🇧", delivery: "2–3 weeks" };
+    }
+
+    // ── UAE domains (.ae or /ae/ or /en-ae/ in path) ─────────────────────
+    if (
+      host.endsWith(".ae") ||
+      path.includes("/en-ae/") ||
+      path.includes("/ae/") ||
+      path.startsWith("/ae")
+    ) {
+      return { route: "uae", currency: "AED", store: host.replace("www.", ""), flag: "🇦🇪", delivery: "5–7 working days" };
+    }
+
+    // ── Known US-only or ambiguous brand sites → default USA ─────────────
+    // (michaelkors.com, stanley1913.com, coach.com, etc. all serve USD
+    //  unless a regional path/subdomain is detected above)
+    return {
+      route: "usa",
+      currency: "USD",
+      store: host.replace("www.", ""),
+      flag: "🇺🇸",
+      delivery: "Approx. 1 month"
+    };
+
+  } catch (_) {
+    return { route: "usa", currency: "USD", store: "US retailer", flag: "🇺🇸", delivery: "Approx. 1 month" };
+  }
 }
 
 function extractAmazonAsin(value) {
@@ -73,22 +109,6 @@ function extractAmazonAsin(value) {
     const path = new URL(value).pathname || "";
     const match = path.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
     return match ? match[1].toUpperCase() : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-// Extract the brand domain for non-Amazon links so Claude searches
-// the right regional sites instead of defaulting to Amazon
-function extractBrandInfo(value) {
-  try {
-    const host = new URL(value).hostname.toLowerCase();
-    // Strip www. and country subdomains to get the core brand domain
-    const parts = host.replace(/^www\./, "").split(".");
-    // e.g. charleskeith.co.uk -> charleskeith
-    // e.g. zara.com -> zara
-    const brand = parts[0];
-    return { host, brand };
   } catch (_) {
     return null;
   }
@@ -144,28 +164,38 @@ function extractJson(text) {
   return null;
 }
 
-async function fetchSingleQuote(url, market, asin, apiKey, signal) {
+async function fetchQuote(url, market, asin, apiKey, signal) {
   const asinLine = asin
-    ? `\nASIN: ${asin} — search for this exact ASIN on ${market.domain}.`
+    ? `\nASIN: ${asin} — use this to find the exact listing on ${market.store}.`
+    : "";
+
+  const isAmazon = url.includes("amazon.");
+
+  const amazonNote = isAmazon
+    ? `\nNOTE: This is an Amazon link. Amazon sometimes hides prices until items are added to cart. If the price is hidden, say so clearly in your response by setting price to null and explaining in notes.`
     : "";
 
   const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service.
 
 The client has pasted this product URL:
-${url}${asinLine}
+${url}${asinLine}${amazonNote}
 
 TASK:
-Use web_search to find the current live price of this exact product on ${market.store} (${market.domain}).
-${asin ? `Search for ASIN ${asin} on ${market.domain} to get the exact current price.` : `Search for the product name and model on ${market.domain} to get the exact current price.`}
+Search for this exact product and find its current live price.
+
+Market detected from the URL: ${market.store} — price must be in ${market.currency}.
+${asin ? `Search for ASIN ${asin} on ${market.store} to get the exact current price in ${market.currency}.` : `Search for the product on ${market.store} to get the exact current price in ${market.currency}.`}
 
 Rules:
-- The price MUST be in ${market.currency} from ${market.domain} only.
-- Do not use prices from any other website or region.
-- Get the price that is currently shown on the product listing page right now.
-- actual_weight_kg: real packed weight in kg.
+- The price MUST be in ${market.currency} only — do not convert or use a different currency.
+- Do not use prices from a different region or website than ${market.store}.
+- Get the actual current price shown on the product listing right now.
+- If the price is genuinely unavailable (hidden, out of stock, requires login), set price to null.
+- actual_weight_kg: real packed weight in kg — estimate from product specs or category norms.
 - dimensions_cm: packed box dimensions in cm (length, width, height).
 - volumetric_weight_kg = length * width * height / 5000.
 - chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
+- For bags, shoes, clothing: estimate generously for packaging.
 
 You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no text before or after:
 
@@ -173,7 +203,7 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
   "name": "exact product name max 80 chars",
   "brand": "brand or null",
   "model": "model/SKU/variant or null",
-  "price": 128.90,
+  "price": 45.00,
   "currency": "${market.currency}",
   "store": "${market.store}",
   "product_url": "url of the listing",
@@ -181,7 +211,7 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
   "dimensions_cm": { "length": 20, "width": 15, "height": 5 },
   "volumetric_weight_kg": 0.3,
   "chargeable_weight_kg": 0.5,
-  "notes": "brief note"
+  "notes": "brief note about the product or pricing"
 }`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -201,6 +231,7 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
   });
 
   const data = await response.json();
+
   if (!response.ok) {
     console.error("Anthropic API error:", JSON.stringify(data));
     throw new Error(data?.error?.message || "Anthropic API error");
@@ -226,124 +257,19 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
 
   if (!parsed.price || parsed.price <= 0) {
     console.error("No valid price:", JSON.stringify(parsed));
-    throw new Error("Amazon prices aren't always visible online — send us the link on WhatsApp and we'll get you a quote manually.");
-  }
-
-  return parsed;
-}
-
-async function fetchComparisonQuote(url, apiKey, signal) {
-  const brandInfo = extractBrandInfo(url);
-  const brandName = brandInfo?.brand || "this brand";
-
-  const prompt = `You are a product research assistant for On Trend, a Tanzania-based global shopping service.
-
-The client has pasted this product URL from ${brandName}'s website:
-${url}
-
-TASK:
-1. Search for this exact product on the pasted URL and identify: name, brand, model, SKU, variant (colour, size).
-2. Find the current live price in each of these three markets. For each market, check the BRAND'S OWN WEBSITE first (e.g. charleskeith.com/ae, charleskeith.com/us, charleskeith.co.uk), then fall back to Amazon or other major retailers only if the brand has no regional site:
-   - UAE price in AED — search "${brandName} UAE" or "${brandName} .ae" or the brand's UAE page
-   - UK price in GBP — search "${brandName} UK" or the brand's .co.uk page (the pasted URL may already be the UK price)
-   - USA price in USD — search "${brandName} US" or the brand's .com page
-3. Estimate packed shipping weight and box dimensions.
-
-Important rules:
-- ALWAYS check the brand's own regional website before Amazon.
-- The pasted URL is from the UK site — that IS the UK price, read it directly.
-- For UAE and USA, find the same product on the brand's UAE and US pages.
-- Match by exact SKU/model code and colour variant.
-- If a market genuinely has no price, set price to null.
-- Do not invent prices.
-
-Weight rules:
-- actual_weight_kg: real packed weight in kg.
-- dimensions_cm: packed box in cm (length, width, height).
-- volumetric_weight_kg = length * width * height / 5000.
-- chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
-
-You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no text before or after:
-
-{
-  "name": "exact product name max 80 chars",
-  "brand": "brand or null",
-  "model": "model/SKU/variant or null",
-  "actual_weight_kg": 0.5,
-  "dimensions_cm": { "length": 20, "width": 15, "height": 5 },
-  "volumetric_weight_kg": 0.3,
-  "chargeable_weight_kg": 0.5,
-  "uk": {
-    "price": 29.99,
-    "currency": "GBP",
-    "store": "Charles & Keith UK",
-    "matched_product_name": "exact title",
-    "product_url": "https://...",
-    "confidence": "high"
-  },
-  "usa": {
-    "price": 35.99,
-    "currency": "USD",
-    "store": "Charles & Keith US",
-    "matched_product_name": "exact title",
-    "product_url": "https://...",
-    "confidence": "high"
-  },
-  "uae": {
-    "price": 128.90,
-    "currency": "AED",
-    "store": "Charles & Keith UAE",
-    "matched_product_name": "exact title",
-    "product_url": "https://...",
-    "confidence": "high"
-  },
-  "notes": "brief note"
-}`;
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    signal,
-    body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514",
-      max_tokens: 3000,
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
-      messages: [{ role: "user", content: prompt }]
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    console.error("Anthropic API error:", JSON.stringify(data));
-    throw new Error(data?.error?.message || "Anthropic API error");
-  }
-
-  console.log("Claude raw content blocks:", JSON.stringify(data.content).slice(0, 3000));
-
-  const textBlock = (data.content || []).filter(b => b.type === "text").pop();
-  if (!textBlock?.text) {
-    console.error("No text block. Response:", JSON.stringify(data).slice(0, 1000));
-    throw new Error("No text in response");
-  }
-
-  console.log("Claude text response:", textBlock.text.slice(0, 1000));
-
-  const parsed = extractJson(textBlock.text);
-  if (!parsed) {
-    console.error("Could not extract JSON:", textBlock.text.slice(0, 500));
-    throw new Error("Could not parse JSON from response");
-  }
-
-  console.log("Parsed result:", JSON.stringify(parsed));
-
-  const hasAnyPrice = [parsed.uk?.price, parsed.usa?.price, parsed.uae?.price].some(Boolean);
-  if (!hasAnyPrice) {
-    console.error("No prices found:", JSON.stringify(parsed));
-    throw new Error("No prices found");
+    // Check if Amazon hid the price
+    const notes = (parsed.notes || "").toLowerCase();
+    if (
+      isAmazon &&
+      (notes.includes("add to cart") || notes.includes("hidden") || notes.includes("cart"))
+    ) {
+      throw new Error(
+        "Amazon prices aren't always visible online — send us the link on WhatsApp and we'll get you a quote manually."
+      );
+    }
+    throw new Error(
+      "We couldn't find a price for this product. Please send us the link on WhatsApp and we'll quote you manually."
+    );
   }
 
   return parsed;
@@ -367,12 +293,11 @@ exports.handler = async function (event) {
     });
   }
 
-  const market = detectAmazonMarket(url);
+  const market = detectMarket(url);
   const asin = extractAmazonAsin(url);
-  const cacheKey = getCacheKey(url, asin);
-  const isSingleMode = !!market;
+  const cacheKey = getCacheKey(url);
 
-  console.log(`Mode: ${isSingleMode ? "single" : "comparison"} | Market: ${market?.route || "none"} | ASIN: ${asin || "none"} | URL: ${url}`);
+  console.log(`Market: ${market.route} | Currency: ${market.currency} | Store: ${market.store} | ASIN: ${asin || "none"} | URL: ${url}`);
 
   const cached = memoryCache.get(cacheKey);
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
@@ -390,81 +315,37 @@ exports.handler = async function (event) {
   const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
-    const orderRef = makeOrderRef();
+    const raw = await fetchQuote(url, market, asin, apiKey, controller.signal);
+    clearTimeout(timeout);
 
-    if (isSingleMode) {
-      const raw = await fetchSingleQuote(url, market, asin, apiKey, controller.signal);
-      const weights = calculateChargeableWeight(raw);
+    const weights = calculateChargeableWeight(raw);
 
-      const result = {
-        mode: "single",
-        order_ref: orderRef,
-        source_url: url,
-        name: String(raw.name || "Product").slice(0, 80),
-        brand: raw.brand ? String(raw.brand).slice(0, 60) : null,
-        model: raw.model ? String(raw.model).slice(0, 80) : null,
-        weight_kg: weights.chargeable_weight_kg,
-        chargeable_weight_kg: weights.chargeable_weight_kg,
-        actual_weight_kg: weights.actual_weight_kg,
-        volumetric_weight_kg: weights.volumetric_weight_kg,
-        dimensions_cm: weights.dimensions_cm,
-        route: {
-          market: market.route,
-          price: Number(raw.price.toFixed(2)),
-          currency: market.currency,
-          store: market.store,
-          product_url: raw.product_url || url
-        },
-        notes: raw.notes || "Live web lookup estimate. Final invoice confirmed before order."
-      };
+    const result = {
+      mode: "single",
+      order_ref: makeOrderRef(),
+      source_url: url,
+      name: String(raw.name || "Product").slice(0, 80),
+      brand: raw.brand ? String(raw.brand).slice(0, 60) : null,
+      model: raw.model ? String(raw.model).slice(0, 80) : null,
+      weight_kg: weights.chargeable_weight_kg,
+      chargeable_weight_kg: weights.chargeable_weight_kg,
+      actual_weight_kg: weights.actual_weight_kg,
+      volumetric_weight_kg: weights.volumetric_weight_kg,
+      dimensions_cm: weights.dimensions_cm,
+      route: {
+        market: market.route,
+        price: Number(raw.price.toFixed(2)),
+        currency: market.currency,
+        store: raw.store || market.store,
+        product_url: raw.product_url || url,
+        flag: market.flag,
+        delivery: market.delivery
+      },
+      notes: raw.notes || "Live web lookup estimate. Final invoice confirmed before order."
+    };
 
-      clearTimeout(timeout);
-      memoryCache.set(cacheKey, { createdAt: Date.now(), data: result });
-      return json(200, result);
-
-    } else {
-      const raw = await fetchComparisonQuote(url, apiKey, controller.signal);
-      const weights = calculateChargeableWeight(raw);
-
-      const makeRoute = (entry, currency, defaultStore) => ({
-        price: typeof entry?.price === "number" && entry.price > 0
-          ? Number(entry.price.toFixed(2))
-          : null,
-        currency,
-        store: entry?.store || defaultStore,
-        matched_product_name: entry?.matched_product_name
-          ? String(entry.matched_product_name).slice(0, 100)
-          : null,
-        product_url: entry?.product_url
-          ? String(entry.product_url).slice(0, 500)
-          : null,
-        confidence: ["high", "medium", "low"].includes(entry?.confidence)
-          ? entry.confidence
-          : "medium"
-      });
-
-      const result = {
-        mode: "comparison",
-        order_ref: orderRef,
-        source_url: url,
-        name: String(raw.name || "Product").slice(0, 80),
-        brand: raw.brand ? String(raw.brand).slice(0, 60) : null,
-        model: raw.model ? String(raw.model).slice(0, 80) : null,
-        weight_kg: weights.chargeable_weight_kg,
-        chargeable_weight_kg: weights.chargeable_weight_kg,
-        actual_weight_kg: weights.actual_weight_kg,
-        volumetric_weight_kg: weights.volumetric_weight_kg,
-        dimensions_cm: weights.dimensions_cm,
-        uk: makeRoute(raw.uk, "GBP", "UK retailer"),
-        usa: makeRoute(raw.usa, "USD", "US retailer"),
-        uae: makeRoute(raw.uae, "AED", "UAE retailer"),
-        notes: raw.notes || "Live web lookup estimate. Final invoice confirmed before order."
-      };
-
-      clearTimeout(timeout);
-      memoryCache.set(cacheKey, { createdAt: Date.now(), data: result });
-      return json(200, result);
-    }
+    memoryCache.set(cacheKey, { createdAt: Date.now(), data: result });
+    return json(200, result);
 
   } catch (err) {
     clearTimeout(timeout);
@@ -474,8 +355,6 @@ exports.handler = async function (event) {
       });
     }
     console.error("Quote error:", err.message);
-    return json(500, {
-      error: "We could not complete this quote. Please try again or send the link on WhatsApp."
-    });
+    return json(500, { error: err.message });
   }
 };
