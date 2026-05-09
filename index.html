@@ -358,14 +358,14 @@ function renderSingle(obj) {
   const route = obj.route;
   const tzs = calcTZS(route.price, route.currency, obj.weight_kg);
 
-  document.getElementById("single-flag").innerHTML = FLAGS[route.market] || "";
+  document.getElementById("single-flag").innerHTML = route.flag || "";
   document.getElementById("single-store").textContent = route.store;
   document.getElementById("single-sub").textContent =
     `${route.currency} ${fmtN(route.price)}`;
   document.getElementById("single-price").textContent = fmtN(tzs);
-  document.getElementById("single-delivery").textContent = DELIVERY[route.market] || "";
+  document.getElementById("single-delivery").textContent = route.delivery || "";
   document.getElementById("single-confirm-text").textContent =
-    `Ref ${obj.order_ref} · ${obj.name} · TZS ${fmtN(tzs)} · ${DELIVERY[route.market] || ""}`;
+    `Ref ${obj.order_ref} · ${obj.name} · TZS ${fmtN(tzs)} · ${route.delivery || ""}`;
   document.getElementById("single-confirm-link").href =
     buildWhatsApp(obj, tzs, route.store);
 
