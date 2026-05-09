@@ -140,10 +140,9 @@ function calculateChargeableWeight(raw) {
     : null;
   const chargeable = Math.max(actual || 0.5, volumetric || 0);
   return {
-    actual_weight_kg: round2(Math.max(0.1, actual || 0.5)),
-    volumetric_weight_kg: volumetric ? round2(Math.max(0.1, volumetric)) : null,
-    chargeable_weight_kg: round2(Math.max(0.1, chargeable || 0.5)),
-    dimensions_cm: {
+    actual_weight_kg: round2(Math.max(0.25, actual || 0.5)),
+    volumetric_weight_kg: volumetric ? round2(Math.max(0.25, volumetric)) : null,
+    chargeable_weight_kg: round2(Math.max(0.25, chargeable || 0.5)),
       length: length ? round2(length) : null,
       width: width ? round2(width) : null,
       height: height ? round2(height) : null
