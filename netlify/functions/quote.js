@@ -37,22 +37,17 @@ function normalizeUrl(value) {
 function getCacheKey(url) {
   try {
     const u = new URL(url);
-    // For Amazon URLs use ASIN as cache key
     const asinMatch = u.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i);
     if (asinMatch) return `asin:${u.hostname.toLowerCase()}:${asinMatch[1].toUpperCase()}`;
   } catch (_) {}
   return url;
 }
 
-// Detect the market and currency from the URL
-// Returns { route, currency, store, domain, flag, delivery }
-// Defaults to USA/USD if region is ambiguous
 function detectMarket(value) {
   try {
     const host = new URL(value).hostname.toLowerCase();
     const path = new URL(value).pathname.toLowerCase();
 
-    // ── Amazon ──────────────────────────────────────────────────────────────
     if (host === "www.amazon.ae" || host === "amazon.ae") {
       return { route: "uae", currency: "AED", store: "Amazon UAE", flag: "🇦🇪", delivery: "5–7 working days" };
     }
@@ -62,13 +57,9 @@ function detectMarket(value) {
     if (host === "www.amazon.com" || host === "amazon.com") {
       return { route: "usa", currency: "USD", store: "Amazon US", flag: "🇺🇸", delivery: "Approx. 1 month" };
     }
-
-    // ── Noon ────────────────────────────────────────────────────────────────
     if (host.includes("noon.com") && (path.startsWith("/uae") || path.startsWith("/en-ae"))) {
       return { route: "uae", currency: "AED", store: "Noon UAE", flag: "🇦🇪", delivery: "5–7 working days" };
     }
-
-    // ── UK domains (.co.uk or /gb/ or /en-gb/ in path) ───────────────────
     if (
       host.endsWith(".co.uk") ||
       path.includes("/en-gb/") ||
@@ -77,8 +68,6 @@ function detectMarket(value) {
     ) {
       return { route: "uk", currency: "GBP", store: host.replace("www.", ""), flag: "🇬🇧", delivery: "2–3 weeks" };
     }
-
-    // ── UAE domains (.ae or /ae/ or /en-ae/ in path) ─────────────────────
     if (
       host.endsWith(".ae") ||
       path.includes("/en-ae/") ||
@@ -88,9 +77,6 @@ function detectMarket(value) {
       return { route: "uae", currency: "AED", store: host.replace("www.", ""), flag: "🇦🇪", delivery: "5–7 working days" };
     }
 
-    // ── Known US-only or ambiguous brand sites → default USA ─────────────
-    // (michaelkors.com, stanley1913.com, coach.com, etc. all serve USD
-    //  unless a regional path/subdomain is detected above)
     return {
       route: "usa",
       currency: "USD",
@@ -143,6 +129,7 @@ function calculateChargeableWeight(raw) {
     actual_weight_kg: round2(Math.max(0.25, actual || 0.5)),
     volumetric_weight_kg: volumetric ? round2(Math.max(0.25, volumetric)) : null,
     chargeable_weight_kg: round2(Math.max(0.25, chargeable || 0.5)),
+    dimensions_cm: {
       length: length ? round2(length) : null,
       width: width ? round2(width) : null,
       height: height ? round2(height) : null
@@ -198,6 +185,7 @@ Rules:
 - volumetric_weight_kg = length * width * height / 5000.
 - chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
 - Do not guess or use generic estimates — always search for the real specs first.
+
 You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no text before or after:
 
 {
@@ -258,7 +246,6 @@ You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no 
 
   if (!parsed.price || parsed.price <= 0) {
     console.error("No valid price:", JSON.stringify(parsed));
-    // Check if Amazon hid the price
     const notes = (parsed.notes || "").toLowerCase();
     if (
       isAmazon &&
