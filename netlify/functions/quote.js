@@ -193,12 +193,12 @@ Rules:
 - If there is a sale price or discounted price, use that — NOT the original crossed-out price.
 - Never use the "was" price, "compare at" price, or any struck-through price.
 - If the price is genuinely unavailable (hidden, out of stock, requires login), set price to null.
-- actual_weight_kg: real packed weight in kg — estimate from product specs or category norms.
-- dimensions_cm: packed box dimensions in cm (length, width, height).
+- Search the product listing page for the exact product dimensions and weight in the specifications or details section.
+- actual_weight_kg: use the product weight from the listing. If not listed, search "[brand] [model] weight specs".
+- dimensions_cm: use the actual product dimensions from the listing converted to cm. Add 3cm to each dimension to account for packaging.
 - volumetric_weight_kg = length * width * height / 5000.
 - chargeable_weight_kg = max(actual_weight_kg, volumetric_weight_kg).
-- For bags, shoes, clothing: estimate generously for packaging.
-
+- Do not guess or use generic estimates — always search for the real specs first.
 You MUST respond with ONLY a valid JSON object. No explanation, no markdown, no text before or after:
 
 {
